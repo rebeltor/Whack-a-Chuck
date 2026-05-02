@@ -86,6 +86,7 @@
             padding: 3px 8px;
             cursor: default;
             user-select: none;
+            touch-action: manipulation;
             display: flex;
             align-items: center;
             white-space: nowrap;
@@ -133,23 +134,26 @@
 
         /* ── Board ── */
         .board {
+            --tile: 82px;
             display: grid;
-            grid-template-columns: repeat(3, 82px);
-            grid-template-rows: repeat(3, 82px);
+            grid-template-columns: repeat(3, var(--tile));
+            grid-template-rows: repeat(3, var(--tile));
             gap: 4px;
         }
         .tile {
-            width: 82px;
-            height: 82px;
+            width: var(--tile);
+            height: var(--tile);
             background-image: url('./images/hole.png');
             background-size: cover;
             background-position: center;
             background-color: #111;
             cursor: pointer;
+            touch-action: manipulation;
             border: 2px solid;
             border-color: #606060 #e0e0e0 #e0e0e0 #606060;
         }
         .tile:hover { filter: brightness(1.08); }
+        @media (hover: none) { .tile:hover { filter: none; } }
         .tile.mole {
             background-image: var(--mole-n);
             animation: pop .12s ease-out;
@@ -318,6 +322,70 @@
 
         /* ── About ── */
         .about-body { text-align: center; padding: 14px 20px; }
+
+        /* ══════════════════════════════════════════════════════
+           RESPONSIVE — Mobile portrait  (≤ 520 px wide)
+           ══════════════════════════════════════════════════════ */
+        @media (max-width: 520px) {
+            body { padding: 4px; gap: 0; }
+
+            .window { width: calc(100vw - 8px); }
+
+            /* Taller, thumb-friendly menu bar */
+            .menu-bar { height: auto; flex-wrap: wrap; }
+            .mi { padding: 7px 8px; font-size: 13px; }
+            .ddi { padding: 10px 16px 10px 30px; font-size: 14px; }
+            .dd { z-index: 300; }
+
+            /* Stack board on top, score strip below */
+            .game-area { flex-direction: column; padding: 6px; gap: 6px; }
+
+            /* Tiles fill the available window width:
+               100vw − 8px body margin − 4px window border − 12px game-area padding − 8px board gaps
+               = (100vw − 32px) / 3  per tile                                                        */
+            .board { --tile: calc((100vw - 32px) / 3); }
+
+            /* Score strip: three boxes side by side */
+            .score-panel { flex-direction: row; flex: none; width: 100%; gap: 4px; }
+            .sbox { flex: 1; padding: 4px 2px; text-align: center; }
+            .slabel { font-size: 10px; }
+            .sval  { font-size: 28px; }
+            .tval  { font-size: 24px; }
+            .hval  { font-size: 20px; }
+
+            /* Status bar */
+            .sp { font-size: 10px; padding: 1px 3px; }
+
+            /* Dialogs */
+            .dlg { min-width: 0; width: calc(100vw - 16px); max-width: 400px; }
+            .dlg-body { padding: 10px 12px; }
+            .lb-wrap { overflow-x: auto; max-height: 200px; }
+            .win-btn { padding: 8px 12px; min-width: 60px; }
+            /* Prevent iOS Safari from zooming on input focus */
+            .win-input { font-size: 16px; }
+        }
+
+        /* ══════════════════════════════════════════════════════
+           RESPONSIVE — Mobile landscape  (short viewport)
+           ══════════════════════════════════════════════════════ */
+        @media (orientation: landscape) and (max-height: 480px) {
+            body { padding: 2px; gap: 0; }
+
+            .window { width: min(490px, calc(100vw - 8px)); }
+
+            /* Keep side-by-side layout; shrink tiles to fit viewport height:
+               100vh − 22px title − 22px menu − 20px game-area padding − 8px gaps − 22px status bar
+               ≈ (100vh − 94px) / 3  per tile, capped at the desktop 82px                           */
+            .board { --tile: min(82px, calc((100vh - 94px) / 3)); }
+
+            .game-area { padding: 6px; gap: 8px; }
+            .sval { font-size: 28px; }
+            .tval { font-size: 22px; }
+            .hval { font-size: 18px; }
+
+            .dlg { min-width: 0; width: min(380px, calc(100vw - 16px)); }
+            .lb-wrap { max-height: 160px; }
+        }
     </style>
 </head>
 <body>
@@ -426,7 +494,7 @@
 
 <!-- ══════════════════════════════════════════════════════ Leaderboard dialog -->
 <div class="overlay" id="dlgLB">
-    <div class="dlg" style="min-width:420px">
+    <div class="dlg" style="min-width:min(420px,calc(100vw - 16px))">
         <div class="dlg-title">
             <span>&#x1F3C6; Wack-a-Chuck Leaderboard</span>
             <button class="dlg-close" data-close="dlgLB">&#x2715;</button>
