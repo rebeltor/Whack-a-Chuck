@@ -1,160 +1,742 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-        <style type="text/css">
-            #gameBoard {
-                margin: auto;
-                margin-top: 75px;
-                width: 250px;
-                height: 250px;
-            }
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wack-a-Chuck</title>
+    <style>
+        :root {
+            --mole-n: url('./images/torN.png');
+            --mole-w: url('./images/torW.png');
+        }
 
-            #gameBoard .tile {
-                background-color: white;
-                background-image:url(./images/hole.png);
-                height: 62px;
-                width: 62px;
-                margin: 2px;
-                display: inline-block;
-            }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-            #gameBoard .tile.mole {
-                background-color: black;
-                background-image:url(./images/torN.png);
-            }
+        body {
+            background: #008080;
+            font-family: 'MS Sans Serif', 'Arial', sans-serif;
+            font-size: 13px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 30px 20px;
+            gap: 12px;
+        }
 
-            #gameBoard .tile.whacked {
-                background-color: black;
-                background-image:url(./images/torW.png);
-            }
-        </style>
-        <title>Wack-a-Chuck</title>
-        <script type="text/javascript">
-            //<![CDATA[
-            window.onload=function(){
-            var game = function() {
-                var gameBoard_Selector = "#gameBoard";
-                var tile_Selector = ".tile";
-                var mole_ClassName = "mole";
-                var whacked_ClassName = "whacked";
+        /* ── Win95 helpers ── */
+        .raised { border: 2px solid; border-color: #fff #808080 #808080 #fff; }
+        .inset  { border: 2px solid; border-color: #808080 #fff #fff #808080; }
 
-                var $gameBoard = $(gameBoard_Selector);
-                var $gameTiles = $gameBoard.find(tile_Selector);
+        /* ── Main window ── */
+        .window {
+            background: #c0c0c0;
+            border: 2px solid;
+            border-color: #fff #808080 #808080 #fff;
+            box-shadow: 2px 2px 0 #000;
+            width: 490px;
+        }
 
-                var gameTime = 40 * 1000;
-                var turnTime = 2000;
+        /* ── Title bar ── */
+        .title-bar {
+            background: linear-gradient(90deg, #000080, #1084d0);
+            color: #fff;
+            height: 22px;
+            padding: 3px 4px 3px 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            user-select: none;
+        }
+        .title-bar-text {
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .title-bar-btns { display: flex; gap: 2px; }
+        .tbtn {
+            width: 16px;
+            height: 14px;
+            background: #c0c0c0;
+            border: 1px solid;
+            border-color: #fff #808080 #808080 #fff;
+            color: #000;
+            font-size: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        .tbtn:active { border-color: #808080 #fff #fff #808080; }
 
-                var moleInterval;
-                var moleLifeMin = 200;
-                var moleLifeMax = 1 * 2000;
+        /* ── Menu bar ── */
+        .menu-bar {
+            background: #c0c0c0;
+            border-bottom: 1px solid #808080;
+            display: flex;
+            align-items: stretch;
+            height: 22px;
+            position: relative;
+        }
+        .mi {
+            position: relative;
+            padding: 3px 8px;
+            cursor: default;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+        .mi:hover, .mi.open { background: #000080; color: #fff; }
+        .mi-right { margin-left: auto; }
 
-                var gameScore = 0;
+        /* ── Dropdown ── */
+        .dd {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #c0c0c0;
+            border: 2px solid;
+            border-color: #fff #808080 #808080 #fff;
+            box-shadow: 2px 2px 0 #000;
+            z-index: 200;
+            min-width: 180px;
+        }
+        .mi.open .dd { display: block; }
+        .ddi {
+            position: relative;
+            padding: 3px 20px 3px 26px;
+            white-space: nowrap;
+            cursor: default;
+        }
+        .ddi:hover { background: #000080; color: #fff; }
+        .ddi.off  { color: #808080; pointer-events: none; }
+        .ddi.chk::before { content: '✓'; position: absolute; left: 8px; }
+        .dd-sep {
+            height: 0;
+            border-top: 1px solid #808080;
+            border-bottom: 1px solid #fff;
+            margin: 3px 0;
+        }
 
-                var getRandomIntInclusive = function(min, max) {
-                    return Math.floor(Math.random() * (max - min + 1)) + min;
-                }
+        /* ── Game area ── */
+        .game-area {
+            padding: 10px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
 
-                // --------------------------------------------------------------
-                // Add a click handler to the board
-                // --------------------------------------------------------------
-                $gameBoard.on("click", ".tile", function() {
-                    var $this = $(this);
+        /* ── Board ── */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 82px);
+            grid-template-rows: repeat(3, 82px);
+            gap: 4px;
+        }
+        .tile {
+            width: 82px;
+            height: 82px;
+            background-image: url('./images/hole.png');
+            background-size: cover;
+            background-position: center;
+            background-color: #111;
+            cursor: pointer;
+            border: 2px solid;
+            border-color: #606060 #e0e0e0 #e0e0e0 #606060;
+        }
+        .tile:hover { filter: brightness(1.08); }
+        .tile.mole {
+            background-image: var(--mole-n);
+            animation: pop .12s ease-out;
+        }
+        .tile.whacked { background-image: var(--mole-w); }
 
-                    // --------------------------------------------------------------
-                    // user clicked on a tile, its not a mole
-                    // --------------------------------------------------------------
-                    if (!$this.hasClass(mole_ClassName)) { return; }
+        @keyframes pop {
+            0%  { transform: scale(.7); }
+            65% { transform: scale(1.1); }
+            100%{ transform: scale(1); }
+        }
 
-                    // --------------------------------------------------------------
-                    // if the tile is a mole, hide the mole and tally score
-                    // --------------------------------------------------------------
-                    $this.removeClass(mole_ClassName);
-                    $this.addClass(whacked_ClassName);
+        /* ── Score panel ── */
+        .score-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+        }
+        .sbox {
+            background: #c0c0c0;
+            padding: 6px 10px;
+            border: 2px solid;
+            border-color: #808080 #fff #fff #808080;
+        }
+        .slabel {
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            font-size: 11px;
+            font-weight: 900;
+            text-decoration: underline;
+            color: #000;
+        }
+        .sval {
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            font-size: 40px;
+            font-weight: 400;
+            color: #000;
+            text-align: center;
+            line-height: 1.05;
+        }
+        .tval {
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            font-size: 32px;
+            color: #000;
+            text-align: center;
+            line-height: 1.05;
+        }
+        .tval.urgent { color: #cc0000; }
+        .hval {
+            font-family: 'Arial Black', 'Arial', sans-serif;
+            font-size: 26px;
+            color: #000080;
+            text-align: center;
+            line-height: 1.05;
+        }
 
-                    gameScore += 1;
-                });
+        /* ── Status bar ── */
+        .status-bar {
+            display: flex;
+            gap: 2px;
+            padding: 2px;
+            border-top: 1px solid #808080;
+        }
+        .sp {
+            border: 1px solid;
+            border-color: #808080 #fff #fff #808080;
+            padding: 1px 5px;
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        .sp.grow { flex: 1; min-width: 0; }
 
-                var startGame = function() {
-                    gameScore = 0;
+        /* ── Overlays / dialogs ── */
+        .overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.2);
+            z-index: 500;
+            justify-content: center;
+            align-items: center;
+        }
+        .overlay.show { display: flex; }
 
-                    // --------------------------------------------------------------
-                    // Every turnTime, spawn a new mole.
-                    // Record moleInterval so we can cancel it when the game ends.
-                    // --------------------------------------------------------------
-                    moleInterval = setInterval(spawnMole, turnTime);
+        .dlg {
+            background: #c0c0c0;
+            border: 2px solid;
+            border-color: #fff #808080 #808080 #fff;
+            box-shadow: 3px 3px 0 #000;
+            min-width: 290px;
+        }
+        .dlg-title {
+            background: linear-gradient(90deg, #000080, #1084d0);
+            color: #fff;
+            height: 22px;
+            padding: 3px 4px 3px 6px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .dlg-close {
+            width: 16px;
+            height: 14px;
+            background: #c0c0c0;
+            border: 1px solid;
+            border-color: #fff #808080 #808080 #fff;
+            color: #000;
+            font-size: 9px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+        }
+        .dlg-body { padding: 14px 16px; }
+        .dlg-body p { font-size: 13px; margin-bottom: 8px; }
 
-                    // --------------------------------------------------------------
-                    // The game ends after specified seconds
-                    // --------------------------------------------------------------
-                    setTimeout(endGame, gameTime);
-                }
+        .win-input {
+            border: 2px solid;
+            border-color: #808080 #fff #fff #808080;
+            background: #fff;
+            padding: 3px 5px;
+            font-size: 13px;
+            width: 100%;
+        }
+        .win-btn {
+            background: #c0c0c0;
+            border: 2px solid;
+            border-color: #fff #808080 #808080 #fff;
+            padding: 4px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            min-width: 75px;
+        }
+        .win-btn:active {
+            border-color: #808080 #fff #fff #808080;
+            padding: 5px 15px 3px 17px;
+        }
+        .btn-row { display: flex; justify-content: center; gap: 8px; margin-top: 12px; }
 
-                var endGame = function() {
-                    // --------------------------------------------------------------
-                    // Stop spawning new moles
-                    // --------------------------------------------------------------
-                    clearInterval(moleInterval);
+        .new-high {
+            color: #000080;
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
 
-                    // --------------------------------------------------------------
-                    // "hide" any existing moles, or whacked moles
-                    // --------------------------------------------------------------
-                    $gameTiles.removeClass(mole_ClassName);
-                    $gameTiles.removeClass(whacked_ClassName);
+        /* ── Leaderboard table ── */
+        .lb-wrap { max-height: 260px; overflow-y: auto; margin-bottom: 4px; }
+        .lb-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .lb-table th {
+            background: #000080;
+            color: #fff;
+            padding: 3px 8px;
+            text-align: left;
+            font-weight: normal;
+            position: sticky;
+            top: 0;
+        }
+        .lb-table td { padding: 3px 8px; border-bottom: 1px solid #b0b0b0; }
+        .lb-table tr:nth-child(even) td { background: #d4d0c8; }
+        .lb-gold td { background: #ffffa0 !important; font-weight: bold; }
 
-                    alert("Game Over! Score: " + gameScore);
-                }
+        /* ── About ── */
+        .about-body { text-align: center; padding: 14px 20px; }
+    </style>
+</head>
+<body>
 
-                var spawnMole = function(timeToLive) {
-                    // --------------------------------------------------------------
-                    // Select a random tile to set as a mole.
-                    // --------------------------------------------------------------
-                    var $targetTile = $($gameTiles[getRandomIntInclusive(0, $gameTiles.length - 1)]);
+<!-- ══════════════════════════════════════════════════════ Main window -->
+<div class="window">
 
-                    // --------------------------------------------------------------
-                    // Moles shall live for a random amount of time
-                    // --------------------------------------------------------------
-                    var timeToLive = getRandomIntInclusive(moleLifeMin , moleLifeMax);
-
-                    // --------------------------------------------------------------
-                    // "show" the mole, and hide any wacked moles
-                    // --------------------------------------------------------------
-                    $targetTile.addClass(mole_ClassName);
-                    $gameTiles.removeClass(whacked_ClassName);
-
-                    // --------------------------------------------------------------
-                    // after timeToLive, automatically "hide" the mole
-                    // --------------------------------------------------------------
-                    setTimeout(function() { $targetTile.removeClass(mole_ClassName); }, timeToLive);
-                }
-
-                return {
-                    startGame
-                };
-
-            }();
-
-            game.startGame();
-        }//]]>
-
-        </script>
-
-    </head>
-
-    <body>
-
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-    <div id="gameBoard">
-        <div class="tile"></div>
-        <div class="tile"></div>
-        <div class="tile"></div>
-        <div class="tile"></div>
-        <div class="tile"></div>
-        <div class="tile"></div>
-        <div class="tile"></div>
-        <div class="tile"></div>
-        <div class="tile"></div>
+    <div class="title-bar">
+        <div class="title-bar-text">
+            <span>🎯</span><span>Wack-a-Chuck</span>
+        </div>
+        <div class="title-bar-btns">
+            <button class="tbtn">&#x2013;</button>
+            <button class="tbtn">&#x25A1;</button>
+            <button class="tbtn">&#x2715;</button>
+        </div>
     </div>
 
-    </body>
+    <div class="menu-bar" id="menuBar">
+        <!-- File -->
+        <div class="mi" data-m="file">File
+            <div class="dd">
+                <div class="ddi" id="miStart">Start Game</div>
+                <div class="ddi off" id="miStop">Stop Game</div>
+                <div class="dd-sep"></div>
+                <div class="ddi" id="miLB">Leaderboard</div>
+            </div>
+        </div>
+
+        <!-- Speed -->
+        <div class="mi" data-m="speed">Speed
+            <div class="dd">
+                <div class="ddi" id="s5">Level 5 &#x2013; Monday</div>
+                <div class="ddi" id="s4">Level 4 &#x2013; Tuesday</div>
+                <div class="ddi" id="s3">Level 3 &#x2013; Wednesday</div>
+                <div class="ddi" id="s2">Level 2 &#x2013; Thursday</div>
+                <div class="ddi chk" id="s1">Level 1 &#x2013; Friday</div>
+            </div>
+        </div>
+
+        <!-- Employee -->
+        <div class="mi" data-m="emp">Employee
+            <div class="dd">
+                <div class="ddi" id="eChuck">Chuck</div>
+                <div class="ddi" id="eChris">Chris</div>
+                <div class="ddi" id="eSam">Sam</div>
+                <div class="ddi chk" id="eTor">Tor</div>
+            </div>
+        </div>
+
+        <!-- About (no dropdown) -->
+        <div class="mi mi-right" id="miAbout">About</div>
+    </div>
+
+    <div class="game-area">
+        <!-- 3×3 board -->
+        <div class="board" id="board">
+            <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+            <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+            <div class="tile"></div><div class="tile"></div><div class="tile"></div>
+        </div>
+
+        <!-- Score / timer panel -->
+        <div class="score-panel">
+            <div class="sbox">
+                <div class="slabel">SCORE:</div>
+                <div class="sval" id="scoreEl">0</div>
+            </div>
+            <div class="sbox">
+                <div class="slabel">TIME:</div>
+                <div class="tval" id="timerEl">0:15</div>
+            </div>
+            <div class="sbox">
+                <div class="slabel">HIGH:</div>
+                <div class="hval" id="highEl">0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="sp grow" id="stMsg">Ready &#x2014; File &gt; Start Game to begin</div>
+        <div class="sp" id="stEmp">Tor</div>
+        <div class="sp" id="stSpd">L1: Friday</div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ Game-over dialog -->
+<div class="overlay" id="dlgOver">
+    <div class="dlg">
+        <div class="dlg-title">
+            <span>Game Over</span>
+            <button class="dlg-close" data-close="dlgOver">&#x2715;</button>
+        </div>
+        <div class="dlg-body">
+            <p>Your score: <strong id="finalEl">0</strong></p>
+            <p class="new-high" id="newHighEl" style="display:none">&#x1F3C6; New High Score!</p>
+            <p>Enter your name for the leaderboard:</p>
+            <input type="text" class="win-input" id="nameEl" placeholder="Your name" maxlength="20" autocomplete="off">
+            <div class="btn-row">
+                <button class="win-btn" id="btnOK">OK</button>
+                <button class="win-btn" data-close="dlgOver">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ Leaderboard dialog -->
+<div class="overlay" id="dlgLB">
+    <div class="dlg" style="min-width:420px">
+        <div class="dlg-title">
+            <span>&#x1F3C6; Wack-a-Chuck Leaderboard</span>
+            <button class="dlg-close" data-close="dlgLB">&#x2715;</button>
+        </div>
+        <div class="dlg-body">
+            <div class="lb-wrap">
+                <table class="lb-table">
+                    <thead><tr>
+                        <th>#</th><th>Name</th><th>Score</th><th>Employee</th><th>Level</th><th>Date</th>
+                    </tr></thead>
+                    <tbody id="lbBody"></tbody>
+                </table>
+            </div>
+            <div class="btn-row">
+                <button class="win-btn" data-close="dlgLB">Close</button>
+                <button class="win-btn" id="btnClear">Clear All</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ About dialog -->
+<div class="overlay" id="dlgAbout">
+    <div class="dlg" style="max-width:320px">
+        <div class="dlg-title">
+            <span>About Wack-a-Chuck</span>
+            <button class="dlg-close" data-close="dlgAbout">&#x2715;</button>
+        </div>
+        <div class="about-body">
+            <div style="font-size:44px;margin-bottom:8px">&#x1F3AF;</div>
+            <p style="font-size:15px;font-weight:bold;margin-bottom:4px">Wack-a-Chuck</p>
+            <p style="font-size:12px;color:#555;margin-bottom:10px">Version 2.0 &#x2013; Web Edition</p>
+            <p style="font-size:12px;margin-bottom:8px">
+                Originally written in Visual Basic 5 in 2002<br>
+                as an in-office joke on a slow afternoon<br>
+                between Christmas and New Year&#x27;s.
+            </p>
+            <p style="font-size:12px;color:#666;margin-bottom:10px">
+                Click the faces as they pop out of the holes<br>
+                before they duck back down!
+            </p>
+            <p style="font-size:11px;color:#888">&#x00A9; 2002&#x2013;2025 Torrance Jones</p>
+            <div class="btn-row"><button class="win-btn" data-close="dlgAbout">OK</button></div>
+        </div>
+    </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Config ──────────────────────────────────────────────────────────────────
+
+const SPEEDS = {
+    s1: { ms: 750, day: 'Friday',    num: 1 },
+    s2: { ms: 650, day: 'Thursday',  num: 2 },
+    s3: { ms: 540, day: 'Wednesday', num: 3 },
+    s4: { ms: 440, day: 'Tuesday',   num: 4 },
+    s5: { ms: 320, day: 'Monday',    num: 5 },
+};
+
+const EMPS = {
+    eTor:   { name: 'Tor',   n: './images/torN.png',   w: './images/torW.png'   },
+    eChuck: { name: 'Chuck', n: './images/chuckN.png', w: './images/chuckW.png' },
+    eChris: { name: 'Chris', n: './images/chrisN.png', w: './images/chrisW.png' },
+    eSam:   { name: 'Sam',   n: './images/samN.png',   w: './images/samW.png'   },
+};
+
+const GAME_SECS = 15;
+const LS_HI = 'wac_hi';
+const LS_LB = 'wac_lb';
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+let running = false, score = 0, timeLeft = 0, pending = 0;
+let spd = 's1', emp = 'eTor';
+let spawnT = null, clockT = null;
+
+// ── DOM ──────────────────────────────────────────────────────────────────────
+
+const $  = id => document.getElementById(id);
+const board    = $('board');
+const scoreEl  = $('scoreEl');
+const timerEl  = $('timerEl');
+const highEl   = $('highEl');
+const stMsg    = $('stMsg');
+const stEmp    = $('stEmp');
+const stSpd    = $('stSpd');
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+
+refreshHigh();
+updateStatus();
+applyMoleCSS();
+preloadImages();
+
+// ── Menu system ──────────────────────────────────────────────────────────────
+
+const menuBar = $('menuBar');
+
+menuBar.addEventListener('click', e => {
+    e.stopPropagation();
+
+    const ddi = e.target.closest('.ddi');
+    if (ddi) {
+        if (!ddi.classList.contains('off')) dispatch(ddi.id);
+        closeMenus();
+        return;
+    }
+
+    const mi = e.target.closest('.mi');
+    if (!mi) return;
+
+    if (mi.id === 'miAbout') { closeMenus(); openDlg('dlgAbout'); return; }
+
+    const wasOpen = mi.classList.contains('open');
+    closeMenus();
+    if (!wasOpen) mi.classList.add('open');
+});
+
+document.addEventListener('click', closeMenus);
+
+function closeMenus() {
+    menuBar.querySelectorAll('.mi.open').forEach(m => m.classList.remove('open'));
+}
+
+function dispatch(id) {
+    if (id === 'miStart')  { startGame();  return; }
+    if (id === 'miStop')   { stopGame();   return; }
+    if (id === 'miLB')     { showLB();     return; }
+    if (id in SPEEDS)      { setSpd(id);   return; }
+    if (id in EMPS)        { setEmp(id);   return; }
+}
+
+function setSpd(id) {
+    menuBar.querySelectorAll('[data-m="speed"] .ddi').forEach(el => el.classList.remove('chk'));
+    $(id).classList.add('chk');
+    spd = id;
+    updateStatus();
+}
+
+function setEmp(id) {
+    menuBar.querySelectorAll('[data-m="emp"] .ddi').forEach(el => el.classList.remove('chk'));
+    $(id).classList.add('chk');
+    emp = id;
+    applyMoleCSS();
+    updateStatus();
+}
+
+function applyMoleCSS() {
+    const e = EMPS[emp];
+    document.documentElement.style.setProperty('--mole-n', `url('${e.n}')`);
+    document.documentElement.style.setProperty('--mole-w', `url('${e.w}')`);
+}
+
+function preloadImages() {
+    Object.values(EMPS).forEach(e => { new Image().src = e.n; new Image().src = e.w; });
+}
+
+function updateStatus() {
+    stEmp.textContent = EMPS[emp].name;
+    stSpd.textContent = `L${SPEEDS[spd].num}: ${SPEEDS[spd].day}`;
+    if (!running) stMsg.textContent = 'Ready — File > Start Game to begin';
+}
+
+// ── Game logic ───────────────────────────────────────────────────────────────
+
+board.addEventListener('click', e => {
+    const tile = e.target.closest('.tile');
+    if (!tile || !running || !tile.classList.contains('mole')) return;
+    tile.classList.replace('mole', 'whacked');
+    scoreEl.textContent = ++score;
+});
+
+function startGame() {
+    if (running) return;
+    running = true;
+    score = 0;
+    timeLeft = GAME_SECS;
+    scoreEl.textContent = '0';
+    renderTimer();
+
+    $('miStart').classList.add('off');
+    $('miStop').classList.remove('off');
+    stMsg.textContent = 'Game in progress…';
+
+    spawnT = setTimeout(spawnMole, SPEEDS[spd].ms);
+    clockT = setInterval(() => { if (--timeLeft <= 0) endGame(); else renderTimer(); }, 1000);
+}
+
+function stopGame() {
+    if (running) endGame();
+}
+
+function endGame() {
+    running = false;
+    clearTimeout(spawnT); clearInterval(clockT);
+    spawnT = null; clockT = null;
+
+    board.querySelectorAll('.tile').forEach(t => t.className = 'tile');
+
+    $('miStart').classList.remove('off');
+    $('miStop').classList.add('off');
+    stMsg.textContent = `Game over! Score: ${score}`;
+
+    pending = score;
+    const hi = getHigh();
+    if (pending > hi) saveHigh(pending);
+    refreshHigh();
+
+    $('finalEl').textContent = pending;
+    $('newHighEl').style.display = pending > hi ? 'block' : 'none';
+    $('nameEl').value = '';
+    openDlg('dlgOver');
+    setTimeout(() => $('nameEl').focus(), 50);
+}
+
+function spawnMole() {
+    const tiles = board.querySelectorAll('.tile');
+    tiles.forEach(t => t.className = 'tile');
+    tiles[Math.floor(Math.random() * tiles.length)].classList.add('mole');
+    if (running) spawnT = setTimeout(spawnMole, SPEEDS[spd].ms);
+}
+
+function renderTimer() {
+    const m = Math.floor(timeLeft / 60), s = timeLeft % 60;
+    timerEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
+    timerEl.classList.toggle('urgent', timeLeft <= 5);
+}
+
+// ── Local storage ─────────────────────────────────────────────────────────────
+
+function getHigh()   { return parseInt(localStorage.getItem(LS_HI) || '0', 10); }
+function saveHigh(n) { localStorage.setItem(LS_HI, n); }
+function refreshHigh() { highEl.textContent = getHigh(); }
+
+function getLB() { try { return JSON.parse(localStorage.getItem(LS_LB) || '[]'); } catch { return []; } }
+function saveLB(lb) { localStorage.setItem(LS_LB, JSON.stringify(lb)); }
+
+// ── Score saving ─────────────────────────────────────────────────────────────
+
+$('btnOK').addEventListener('click', saveScore);
+$('nameEl').addEventListener('keydown', e => { if (e.key === 'Enter') saveScore(); });
+
+function saveScore() {
+    const name = ($('nameEl').value.trim() || 'Anonymous').slice(0, 20);
+    const lb = getLB();
+    lb.push({
+        name,
+        score: pending,
+        emp: EMPS[emp].name,
+        level: SPEEDS[spd].day,
+        date: new Date().toLocaleDateString(),
+    });
+    lb.sort((a, b) => b.score - a.score);
+    lb.splice(10);
+    saveLB(lb);
+    closeDlg('dlgOver');
+}
+
+// ── Leaderboard ──────────────────────────────────────────────────────────────
+
+function showLB() {
+    const lb = getLB();
+    const tbody = $('lbBody');
+    tbody.innerHTML = '';
+
+    if (!lb.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:14px;color:#666">No scores yet — play a game!</td></tr>';
+    } else {
+        lb.forEach((e, i) => {
+            const tr = document.createElement('tr');
+            if (i === 0) tr.classList.add('lb-gold');
+            tr.innerHTML = `<td>${i+1}</td><td>${esc(e.name)}</td><td>${e.score}</td><td>${esc(e.emp)}</td><td>${esc(e.level)}</td><td>${esc(e.date)}</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    openDlg('dlgLB');
+}
+
+$('btnClear').addEventListener('click', () => {
+    if (confirm('Clear all scores and high score?')) {
+        saveLB([]);
+        localStorage.removeItem(LS_HI);
+        refreshHigh();
+        showLB();
+    }
+});
+
+// ── Dialog helpers ────────────────────────────────────────────────────────────
+
+function openDlg(id)  { $(id).classList.add('show'); }
+function closeDlg(id) { $(id).classList.remove('show'); }
+
+document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => closeDlg(btn.dataset.close));
+});
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        closeMenus();
+        ['dlgOver', 'dlgLB', 'dlgAbout'].forEach(closeDlg);
+    }
+});
+
+// ── Util ──────────────────────────────────────────────────────────────────────
+
+function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+</script>
+</body>
 </html>
